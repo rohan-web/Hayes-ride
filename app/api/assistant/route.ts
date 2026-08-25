@@ -493,7 +493,7 @@ export async function POST(
     const firstResponse =
       await ai.models.generateContent({
         model:
-          "gemini-3-flash-preview",
+          "gemini-3.1-flash-lite",
 
         contents,
 
@@ -538,7 +538,7 @@ export async function POST(
       const results = await searchKnowledge(args.query, 5)
 
       const finalResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite",
         contents: [
           ...contents,
           {
@@ -850,7 +850,7 @@ if (functionCall.name === "createBooking") {
   const finalResponse =
     await ai.models.generateContent({
       model:
-        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
 
       contents: [
         {

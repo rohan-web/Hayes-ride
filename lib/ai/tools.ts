@@ -219,14 +219,30 @@ export async function createBooking({
   }
 }
 
-export async function getBooking(reference: string) {
+export async function getBooking(
+  reference: string,
+  cookie?: string
+) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "http://localhost:3000"
+
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/bookings/${encodeURIComponent(reference)}`,
+    `${baseUrl}/api/bookings/${encodeURIComponent(reference)}`,
     {
       method: "GET",
+
       headers: {
         "Content-Type": "application/json",
+
+        ...(cookie
+          ? {
+              Cookie: cookie,
+            }
+          : {}),
       },
+
       cache: "no-store",
     }
   )
@@ -235,13 +251,13 @@ export async function getBooking(reference: string) {
 
   if (!response.ok || !data.success) {
     throw new Error(
-      data.error || "Unable to retrieve booking."
+      data.error ||
+        "Unable to retrieve booking."
     )
   }
 
   return data.booking
 }
-
 export async function updateBooking(
   reference: string,
   updates: {

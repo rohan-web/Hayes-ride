@@ -485,6 +485,97 @@ export async function POST(
     ]
 
     /*
+ * =====================================================
+ * DETERMINISTIC BOOKING STATUS / REFERENCE LOOKUP
+ * =====================================================
+ *
+ * Do not waste a Gemini request for simple booking
+ * reference/status questions.
+ */
+
+const wantsBookingStatus =
+  /\b(status|booking status|reference|reference number|booking reference)\b/i.test(
+    message
+  )
+
+if (wantsBookingStatus) {
+  /*
+   * Search current message + previous conversation
+   * for the latest Hayes booking reference.
+   */
+  const conversationText = [
+    ...history.map(
+      (item: {
+        role: "user" | "assistant"
+        content: string
+      }) => item.content
+    ),
+    message,
+  ].join("\n")
+
+  const references =
+    conversationText.match(
+      /\bHR-\d{5}\b/gi
+    ) || []
+
+  const reference =
+    references.length > 0
+      ? references[
+          references.length - 1
+        ].toUpperCase()
+      : null
+
+  if (!reference) {
+    return NextResponse.json({
+      success: true,
+
+      message:
+        "Please provide your Hayes & Ride booking reference, for example HR-12345.",
+    })
+  }
+
+  const cookie =
+    request.headers.get("cookie") ||
+    ""
+
+  try {
+    const booking =
+      await getBooking(
+        reference,
+        cookie
+      )
+
+    return NextResponse.json({
+      success: true,
+
+      message:
+        `Your booking reference is ${booking.reference}. ` +
+        `The booking is currently ${booking.status}. ` +
+        `Pickup: ${booking.pickup}. ` +
+        `Destination: ${booking.destination}. ` +
+        `Date: ${booking.date}. ` +
+        `Time: ${booking.time}.`,
+
+      tool: "getBooking",
+
+      booking,
+    })
+  } catch (error) {
+    console.error(
+      "Direct booking lookup error:",
+      error
+    )
+
+    return NextResponse.json({
+      success: true,
+
+      message:
+        `I found your booking reference ${reference}, but I couldn't retrieve its current status. Please make sure you're signed in to the account that made the booking.`,
+    })
+  }
+}
+
+    /*
      * First Gemini response.
      *
      * Gemini decides whether a tool is necessary.
@@ -587,10 +678,16 @@ if ((functionCall.name as string) === "getBooking") {
   const args = functionCall.args as {
     reference: string
   }
+const cookie =
+  request.headers.get("cookie") ||
+  ""
 
-  const booking = await getBooking(
-    args.reference
+const booking =
+  await getBooking(
+    args.reference,
+    cookie
   )
+  
 
   return NextResponse.json({
     success: true,

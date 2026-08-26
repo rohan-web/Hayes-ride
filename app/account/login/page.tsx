@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, Suspense, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 function LoginForm() {
@@ -41,8 +41,14 @@ function LoginForm() {
         return
       }
 
-      router.refresh()
-      router.push("/account")
+      const searchParams = useSearchParams()
+
+const returnTo =
+  searchParams.get("returnTo") || "/account"
+
+    router.refresh()
+    router.push(returnTo)
+      
     } catch (error) {
       console.error(
         "Login request failed:",

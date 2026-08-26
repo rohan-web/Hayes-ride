@@ -680,7 +680,7 @@ function AssistantPanel({
   useEffect(() => {
     try {
       const saved =
-        window.localStorage.getItem(
+        window.sessionStorage.getItem(
           "hayes-assistant-conversation"
         )
 
@@ -719,7 +719,7 @@ function AssistantPanel({
     if (!messages.length) return
 
     try {
-      window.localStorage.setItem(
+      window.sessionStorage.setItem(
         "hayes-assistant-conversation",
         JSON.stringify(messages)
       )
@@ -745,7 +745,7 @@ function AssistantPanel({
     setRequiresAuth(false)
 
     try {
-      window.localStorage.removeItem(
+      window.sessionStorage.removeItem(
         "hayes-assistant-conversation"
       )
     } catch {}
@@ -882,14 +882,24 @@ function AssistantPanel({
    * Conversation stays stored.
    */
   function goToLogin() {
-    window.location.href =
-      "/account/login?returnTo=/"
-  }
+  sessionStorage.setItem(
+    "hayes-reopen-after-auth",
+    "true"
+  )
 
-  function goToSignup() {
-    window.location.href =
-      "/account/signup?returnTo=/"
-  }
+  window.location.href =
+    "/account/login?returnTo=/"
+}
+
+function goToSignup() {
+  sessionStorage.setItem(
+    "hayes-reopen-after-auth",
+    "true"
+  )
+
+  window.location.href =
+    "/account/signup?returnTo=/"
+}
 
   return (
     <aside
@@ -1134,6 +1144,21 @@ export default function HayesRide() {
 
   const [faqOpen, setFaqOpen] =
     useState<number | null>(null)
+
+    useEffect(() => {
+  const shouldReopen =
+    sessionStorage.getItem(
+      "hayes-reopen-after-auth"
+    )
+
+  if (shouldReopen === "true") {
+    sessionStorage.removeItem(
+      "hayes-reopen-after-auth"
+    )
+
+    setAssistantOpen(true)
+  }
+}, [])
 
   return (
     <div

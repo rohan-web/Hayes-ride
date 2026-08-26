@@ -53,26 +53,24 @@ export default function SignupPage() {
           }
         )
 
-      const data =
-        await response.json()
+   const data = await response.json()
 
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        throw new Error(
-          data.error ||
-            "Signup failed."
-        )
-      }
+if (!response.ok || !data.success) {
+  setError(
+    data.error || "Signup failed."
+  )
+  return
+}
 
-      const searchParams = useSearchParams()
+const params =
+  new URLSearchParams(
+    window.location.search
+  )
 
 const returnTo =
-  searchParams.get("returnTo") || "/account"
+  params.get("returnTo") || "/account"
 
-router.refresh()
-router.push(returnTo)
+window.location.replace(returnTo)
 
       router.refresh()
     } catch (error) {

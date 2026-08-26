@@ -1,7 +1,11 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useState } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 const services = [
   [
@@ -660,19 +664,27 @@ function AssistantPanel({
 }: {
   close: () => void
 }) {
-  const [message, setMessage] =
-    useState("")
+  const [message, setMessage] = useState("")
 
   const [messages, setMessages] =
     useState<ChatMessage[]>([])
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
+  const [requiresAuth, setRequiresAuth] = useState(false)
 
-  const [
+  // Auto-scroll Hayes chat to the latest message/auth actions
+  const bottomRef =
+    useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+    })
+  }, [
+    messages,
+    loading,
     requiresAuth,
-    setRequiresAuth,
-  ] = useState(false)
+  ])
 
   /*
    * Restore Hayes conversation after login/navigation.
@@ -1098,6 +1110,8 @@ function goToSignup() {
             Manage my booking
           </button>
         </div>
+
+        <div ref={bottomRef} />
       </div>
 
       <form

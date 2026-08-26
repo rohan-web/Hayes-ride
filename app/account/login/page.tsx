@@ -32,22 +32,24 @@ function LoginForm() {
         }),
       })
 
-      const data = await response.json()
+    const data = await response.json()
 
-      if (!response.ok || !data.success) {
-        setError(
-          data.error || "Invalid email or password."
-        )
-        return
-      }
+if (!response.ok || !data.success) {
+  setError(
+    data.error || "Invalid email or password."
+  )
+  return
+}
 
-      const searchParams = useSearchParams()
+const params =
+  new URLSearchParams(
+    window.location.search
+  )
 
 const returnTo =
-  searchParams.get("returnTo") || "/account"
+  params.get("returnTo") || "/account"
 
-    router.refresh()
-    router.push(returnTo)
+window.location.replace(returnTo)
       
     } catch (error) {
       console.error(

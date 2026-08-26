@@ -340,7 +340,7 @@ function BookingWidget() {
   }
 
   return (
-    <div>
+    <div className="booking-experience">
       <form
         className="booking-widget"
         id="book"

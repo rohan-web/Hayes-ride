@@ -144,6 +144,51 @@ function BookingWidget() {
   const [customerName, setCustomerName] = useState("")
   const [customerEmail, setCustomerEmail] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; phone?: string } | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const BOOKING_DRAFT_KEY = "hayes-booking-widget-draft"
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(BOOKING_DRAFT_KEY)
+      if (saved) {
+        const draft = JSON.parse(saved)
+        setPickup(draft.pickup || "")
+        setDestination(draft.destination || "")
+        setDate(draft.date || "")
+        setTime(draft.time || "")
+        setPassengers(draft.passengers || "1")
+        setQuote(draft.quote || null)
+        sessionStorage.removeItem(BOOKING_DRAFT_KEY)
+      }
+    } catch (cause) {
+      console.error("Unable to restore booking draft:", cause)
+    }
+
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          setCurrentUser(data.user)
+          setCustomerName(data.user.name || "")
+          setCustomerEmail(data.user.email || "")
+          setCustomerPhone(data.user.phone || "")
+        }
+      })
+      .catch(() => setCurrentUser(null))
+      .finally(() => setAuthLoading(false))
+  }, [])
+
+  function saveBookingDraft() {
+    sessionStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify({
+      pickup,
+      destination,
+      date,
+      time,
+      passengers,
+      quote,
+    }))
+  }
 
   const [bookingLoading, setBookingLoading] =
     useState(false)
@@ -429,97 +474,36 @@ function BookingWidget() {
               {quote.estimatedDuration}
             </p>
           )}
-
           {!booking && (
-            <form
-              id="customer-details"
-              onSubmit={handleBooking}
-              style={{
-                marginTop: "24px",
-                padding: "24px",
-                border:
-                  "1px solid currentColor",
-                borderRadius: "12px",
-              }}
-            >
-              <p className="eyebrow brass">
-                Passenger details
-              </p>
-
-              <h3
-                style={{
-                  fontSize: "1.5rem",
-                  marginTop: "8px",
-                }}
-              >
-                Complete your booking
-              </h3>
-
-              <div
-                style={{
-                  display: "grid",
-                  gap: "12px",
-                  marginTop: "20px",
-                }}
-              >
-                <input
-                  placeholder="Full name"
-                  value={customerName}
-                  onChange={(e) =>
-                    setCustomerName(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  value={customerEmail}
-                  onChange={(e) =>
-                    setCustomerEmail(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-
-                <input
-                  type="tel"
-                  placeholder="Phone number"
-                  value={customerPhone}
-                  onChange={(e) =>
-                    setCustomerPhone(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-
-                <button
-                  type="submit"
-                  disabled={bookingLoading}
-                >
-                  {bookingLoading
-                    ? "Creating booking..."
-                    : "Confirm booking"}
-                </button>
+            authLoading ? (
+              <div className="booking-auth-state" aria-live="polite">Checking your account…</div>
+            ) : currentUser ? (
+              <form id="customer-details" onSubmit={handleBooking} className="customer-details-form">
+                <p className="eyebrow brass">Passenger details</p>
+                <h3>Complete your booking</h3>
+                <p className="customer-details-note">Your account details have been added automatically. You can update the phone number for this journey.</p>
+                <div className="customer-fields">
+                  <label><span>Full name</span><input value={customerName} readOnly aria-readonly="true" /></label>
+                  <label><span>Email address</span><input type="email" value={customerEmail} readOnly aria-readonly="true" /></label>
+                  <label><span>Phone number</span><input type="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} required placeholder="Add your phone number" /></label>
+                  <button type="submit" disabled={bookingLoading}>{bookingLoading ? "Creating booking…" : "Confirm booking"}</button>
+                </div>
+                {bookingError && <p className="booking-inline-error" role="alert">{bookingError}</p>}
+              </form>
+            ) : (
+              <div className="booking-auth-state">
+                <p className="eyebrow brass">Account required</p>
+                <h3>Sign in to complete your booking</h3>
+                <p>Your quote is ready. Sign in or create an account and we’ll bring you back to this journey.</p>
+                <div className="booking-auth-actions">
+                  <a href="/account/login?returnTo=%2F%23book" onClick={saveBookingDraft}>Sign in</a>
+                  <a href="/account/signup?returnTo=%2F%23book" onClick={saveBookingDraft}>Create account</a>
+                </div>
               </div>
-
-              {bookingError && (
-                <p
-                  style={{
-                    marginTop: "12px",
-                  }}
-                >
-                  {bookingError}
-                </p>
-              )}
-            </form>
+            )
           )}
 
-          {booking && (
+{booking && (
             <div
               style={{
                 marginTop: "24px",
@@ -586,24 +570,6 @@ function BookingWidget() {
               </div>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={() => {
-              document
-                .getElementById(
-                  "customer-details"
-                )
-                ?.scrollIntoView({
-                  behavior: "smooth",
-                })
-            }}
-            style={{
-              marginTop: "16px",
-            }}
-          >
-            Continue booking →
-          </button>
         </div>
       )}
     </div>

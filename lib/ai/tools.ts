@@ -114,6 +114,7 @@ export async function createBooking({
   passengers,
   vehicleType,
   customer,
+  cookie,
 }: {
   pickup: string
   destination: string
@@ -126,54 +127,96 @@ export async function createBooking({
     email: string
     phone: string
   }
-})
-
-
-{
+  cookie?: string
+}) {
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
     "http://localhost:3000"
 
- const response = await fetch(
-  `${baseUrl}/api/bookings`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pickup,
-      destination,
-      date,
-      time,
-      passengers,
-      vehicleType,
-      customer,
-    }),
+  const response = await fetch(
+    `${baseUrl}/api/bookings`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+
+        /*
+         * IMPORTANT:
+         * Forward the customer's real browser session
+         * to the booking API.
+         */
+        ...(cookie
+          ? {
+              Cookie: cookie,
+            }
+          : {}),
+      },
+
+      body: JSON.stringify({
+        pickup,
+        destination,
+        date,
+        time,
+        passengers,
+        vehicleType,
+        customer,
+      }),
+
+      cache: "no-store",
+    }
+  )
+
+  const data = await response.json()
+
+  /*
+   * Authentication failure is NOT
+   * vehicle unavailability.
+   */
+  if (
+    response.status === 401 ||
+    data.error === "AUTHENTICATION_REQUIRED" ||
+    data.error === "Authentication required"
+  ) {
+    return {
+      success: false,
+      requiresAuth: true,
+      unavailable: false,
+      error: "Authentication required.",
+    }
   }
-)
 
-const data = await response.json()
+  /*
+   * Genuine availability conflict.
+   */
+  if (response.status === 409) {
+    return {
+      success: false,
+      requiresAuth: false,
+      unavailable: true,
+      error:
+        data.error ||
+        "No vehicles are available for the selected date and time.",
+    }
+  }
 
-if (!response.ok || !data.success) {
-  return {
-    success: false,
-    unavailable: true,
-    error:
+  /*
+   * Any other backend error.
+   */
+  if (!response.ok || !data.success) {
+    throw new Error(
       data.error ||
-      "The selected vehicle is not available for this date and time.",
+        "Unable to create booking."
+    )
   }
-}
 
-return {
-  success: true,
-  unavailable: false,
-  booking: data.booking,
-}
-
-
-
-return data.booking
+  return {
+    success: true,
+    requiresAuth: false,
+    unavailable: false,
+    booking: data.booking,
+  }
 }
 
 export async function getBooking(reference: string) {

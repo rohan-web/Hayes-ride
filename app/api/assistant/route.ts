@@ -792,28 +792,30 @@ if (functionCall.name === "createBooking") {
    * Customer identity comes from the authenticated
    * Hayes & Ride account.
    */
-  const bookingResult =
-    await createBooking({
-      pickup: args.pickup,
+const cookie =
+  request.headers.get("cookie") || ""
 
-      destination: args.destination,
+const bookingResult =
+  await createBooking({
+    pickup: args.pickup,
+    destination: args.destination,
+    date: args.date,
+    time: args.time,
+    passengers: args.passengers,
+    vehicleType: args.vehicleType,
 
-      date: args.date,
+    customer: {
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+    },
 
-      time: args.time,
-
-      passengers: args.passengers,
-
-      vehicleType: args.vehicleType,
-
-      customer: {
-        name: user.name,
-
-        email: user.email,
-
-        phone: user.phone || "",
-      },
-    })
+    /*
+     * Pass browser authentication through
+     * Hayes -> booking API.
+     */
+    cookie,
+  })
 
   /*
    * Vehicle unavailable.
@@ -821,6 +823,19 @@ if (functionCall.name === "createBooking") {
    * This is a normal business response,
    * NOT an AI failure.
    */
+
+  if (bookingResult.requiresAuth) {
+  return NextResponse.json({
+    success: true,
+
+    requiresAuth: true,
+
+    message:
+      "Before I can complete this booking, please sign in or create a Hayes & Ride account.",
+  })
+}
+
+
   if (bookingResult.unavailable) {
     return NextResponse.json({
       success: true,

@@ -660,12 +660,19 @@ function AssistantPanel({
 }: {
   close: () => void
 }) {
-  const [message, setMessage] = useState("")
+  const [message, setMessage] =
+    useState("")
 
   const [messages, setMessages] =
     useState<ChatMessage[]>([])
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] =
+    useState(false)
+
+  const [
+    requiresAuth,
+    setRequiresAuth,
+  ] = useState(false)
 
   /*
    * Restore Hayes conversation after login/navigation.
@@ -678,9 +685,8 @@ function AssistantPanel({
         )
 
       if (saved) {
-        const parsed = JSON.parse(
-          saved
-        )
+        const parsed =
+          JSON.parse(saved)
 
         if (
           Array.isArray(parsed) &&
@@ -732,7 +738,11 @@ function AssistantPanel({
         "Hi. I can help you get a quote, find a suitable vehicle or make a booking.",
     }
 
-    setMessages([initialMessage])
+    setMessages([
+      initialMessage,
+    ])
+
+    setRequiresAuth(false)
 
     try {
       window.localStorage.removeItem(
@@ -748,10 +758,19 @@ function AssistantPanel({
       text ?? message
     ).trim()
 
-    if (!userMessage || loading) return
+    if (
+      !userMessage ||
+      loading
+    ) {
+      return
+    }
 
     setMessage("")
 
+    /*
+     * Keep conversation history BEFORE
+     * adding the new user message.
+     */
     const conversationHistory =
       messages
 
@@ -759,60 +778,90 @@ function AssistantPanel({
       ...current,
       {
         role: "user",
-        content: userMessage,
+        content:
+          userMessage,
       },
     ])
 
     setLoading(true)
 
     try {
-      const response = await fetch(
-        "/api/assistant",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            message: userMessage,
-            history:
-              conversationHistory,
-          }),
-        }
-      )
+      const response =
+        await fetch(
+          "/api/assistant",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                message:
+                  userMessage,
+
+                history:
+                  conversationHistory,
+              }),
+          }
+        )
 
       const data =
         await response.json()
 
-      if (!response.ok || !data.success) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         throw new Error(
           data.error ||
             "Assistant unavailable."
         )
       }
 
-      setMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          content: data.message,
-        },
-      ])
+      /*
+       * IMPORTANT:
+       *
+       * The backend now decides
+       * whether authentication
+       * is actually required.
+       */
+      setRequiresAuth(
+        data.requiresAuth === true
+      )
+
+      setMessages(
+        (current) => [
+          ...current,
+          {
+            role:
+              "assistant",
+
+            content:
+              data.message,
+          },
+        ]
+      )
     } catch (error) {
       console.error(
         "Assistant error:",
         error
       )
 
-      setMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          content:
-            "Sorry, I couldn't process that request right now.",
-        },
-      ])
+      setMessages(
+        (current) => [
+          ...current,
+          {
+            role:
+              "assistant",
+
+            content:
+              "Sorry, I couldn't process that request right now.",
+          },
+        ]
+      )
     } finally {
       setLoading(false)
     }
@@ -822,12 +871,15 @@ function AssistantPanel({
     e: React.FormEvent<HTMLFormElement>
   ) {
     e.preventDefault()
+
     sendMessage()
   }
 
   /*
-   * Login page receives this return URL.
-   * After login, user comes back to homepage.
+   * Login/signup pages return
+   * customer to the homepage.
+   *
+   * Conversation stays stored.
    */
   function goToLogin() {
     window.location.href =
@@ -859,13 +911,16 @@ function AssistantPanel({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems:
+              "center",
             gap: "8px",
           }}
         >
           <button
             type="button"
-            onClick={clearConversation}
+            onClick={
+              clearConversation
+            }
             aria-label="Start new conversation"
             title="New conversation"
           >
@@ -873,6 +928,7 @@ function AssistantPanel({
           </button>
 
           <button
+            type="button"
             onClick={close}
             aria-label="Close assistant"
           >
@@ -883,73 +939,94 @@ function AssistantPanel({
 
       <div className="assistant-body">
         {messages.map(
-          (item, index) => (
+          (
+            item,
+            index
+          ) => (
             <div
               key={index}
               className={
-                item.role === "user"
+                item.role ===
+                "user"
                   ? "assistant-message user"
                   : "assistant-message"
               }
             >
               <p>
-                {item.content}
+                {
+                  item.content
+                }
               </p>
             </div>
           )
         )}
 
         {/*
-         * Authentication actions are always available
-         * once the customer reaches the booking stage.
+         * IMPORTANT:
          *
-         * This prevents the customer from having to
-         * manually type /account/login.
+         * Login/signup actions now
+         * show ONLY when the backend
+         * explicitly returns:
+         *
+         * requiresAuth: true
          */}
-        {messages.some(
-          (item) =>
-            item.role === "user" &&
-            /\b(book|booking|reserve|reservation)\b/i.test(
-              item.content
-            )
-        ) && (
+        {requiresAuth && (
           <div
             style={{
-              marginTop: "12px",
-              padding: "16px",
+              marginTop:
+                "12px",
+
+              padding:
+                "16px",
+
               border:
                 "1px solid rgba(255,255,255,0.14)",
-              borderRadius: "12px",
+
+              borderRadius:
+                "12px",
             }}
           >
             <p
               style={{
-                marginBottom: "12px",
+                marginBottom:
+                  "12px",
               }}
             >
-              Ready to book? Please sign in
-              or create an account first.
-              Your Hayes conversation will
-              stay saved while you do this.
+              Ready to
+              continue? Please
+              sign in or create
+              an account first.
+              Your Hayes
+              conversation will
+              stay saved while
+              you do this.
             </p>
 
             <div
               style={{
-                display: "flex",
+                display:
+                  "flex",
+
                 gap: "8px",
-                flexWrap: "wrap",
+
+                flexWrap:
+                  "wrap",
               }}
             >
               <button
                 type="button"
-                onClick={goToLogin}
+                onClick={
+                  goToLogin
+                }
               >
                 Sign in
               </button>
 
               <button
                 type="button"
-                onClick={goToSignup}
+                onClick={
+                  goToSignup
+                }
               >
                 Create account
               </button>
@@ -960,7 +1037,8 @@ function AssistantPanel({
         {loading && (
           <div className="assistant-message">
             <p>
-              Hayes is thinking...
+              Hayes is
+              thinking...
             </p>
           </div>
         )}
@@ -1014,12 +1092,16 @@ function AssistantPanel({
 
       <form
         className="assistant-input"
-        onSubmit={handleSubmit}
+        onSubmit={
+          handleSubmit
+        }
       >
         <input
           value={message}
           onChange={(e) =>
-            setMessage(e.target.value)
+            setMessage(
+              e.target.value
+            )
           }
           placeholder="Tell us what you need..."
           aria-label="Message the booking assistant"
@@ -1040,7 +1122,6 @@ function AssistantPanel({
     </aside>
   )
 }
-
 /* =========================================================
    MAIN HAYES RIDE PAGE
    ========================================================= */

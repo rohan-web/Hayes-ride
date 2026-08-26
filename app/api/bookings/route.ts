@@ -65,43 +65,70 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     )
-  } catch (error) {
-    console.error("Booking API error:", error)
+  }  catch (error) {
+  console.error(
+    "Booking API error:",
+    error
+  )
 
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid booking information",
-          details: error.flatten(),
-        },
-        { status: 400 }
-      )
-    }
-
-    if (
-      error instanceof Error &&
-      error.message.includes("No vehicles available")
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message,
-        },
-        { status: 409 }
-      )
-    }
-
+  if (
+    error instanceof Error &&
+    error.message ===
+      "AUTHENTICATION_REQUIRED"
+  ) {
     return NextResponse.json(
       {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to create booking",
+          "AUTHENTICATION_REQUIRED",
       },
-      { status: 500 }
+      {
+        status: 401,
+      }
     )
   }
-}
 
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Invalid booking information",
+        details:
+          error.flatten(),
+      },
+      {
+        status: 400,
+      }
+    )
+  }
+
+  if (
+    error instanceof Error &&
+    error.message.includes(
+      "No vehicles available"
+    )
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 409,
+      }
+    )
+  }
+
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        "Unable to create booking",
+    },
+    {
+      status: 500,
+    }
+  )
+}
+}

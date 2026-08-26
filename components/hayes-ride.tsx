@@ -81,98 +81,53 @@ function Button({
   )
 }
 
-function Header({
-  onAssistant,
-}: {
-  onAssistant: () => void
-}) {
+function Header({ onAssistant }: { onAssistant: () => void }) {
   const [open, setOpen] = useState(false)
+  const [user, setUser] = useState<{ name: string } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (active && data.success) setUser(data.user || null) })
+      .catch(() => { if (active) setUser(null) })
+    return () => { active = false }
+  }, [])
+
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" })
+    setUser(null)
+    setOpen(false)
+    window.location.href = "/"
+  }
+
+  const accountLabel = user?.name?.split(" ")[0] || "My account"
+  const navigation = [
+    ["Services", "#services"],
+    ["Airport transfers", "#airports"],
+    ["Fleet", "#fleet"],
+  ]
 
   return (
     <header className="site-header">
-      <a
-        className="wordmark"
-        href="#top"
-        aria-label="Hayes and Ride home"
-      >
-        <span>H</span> HAYES <i>&</i> RIDE
-      </a>
-
-      <nav
-        className="desktop-nav"
-        aria-label="Primary navigation"
-      >
-        {[
-          "Services",
-          "Airport Transfers",
-          "Our Fleet",
-          "How It Works",
-          "FAQ",
-        ].map((item, i) => (
-          <a
-            key={item}
-            href={`#${
-              ["services", "airports", "fleet", "process", "faq"][i]
-            }`}
-          >
-            {item}
-          </a>
-        ))}
+      <a className="wordmark" href="#top" aria-label="Hayes and Ride home"><span>H</span> HAYES <i>&</i> RIDE</a>
+      <nav className="desktop-nav" aria-label="Primary navigation">
+        {navigation.map(([label, href]) => <a key={label} href={href}>{label}</a>)}
+        <button className="assistant-link" onClick={onAssistant}>Ask Hayes</button>
       </nav>
-
       <div className="header-actions">
-        <button
-          className="assistant-link"
-          onClick={onAssistant}
-        >
-          Ask Hayes
-        </button>
-
-        <a className="book-link" href="#book">
-          Book a ride <span>↗</span>
-        </a>
-
-        <button
-          className="menu-toggle"
-          aria-expanded={open}
-          aria-label="Toggle menu"
-          onClick={() => setOpen(!open)}
-        >
-          {open ? "Close" : "Menu"}
-        </button>
+        {user ? (
+          <><a className="account-link" href="/account">{accountLabel}</a><button className="signout-link" onClick={signOut}>Sign out</button></>
+        ) : <a className="account-link" href="/account/login?returnTo=/">Sign in</a>}
+        <a className="book-link" href="#book">Book a ride <span>↗</span></a>
+        <button className="menu-toggle" aria-expanded={open} aria-label="Toggle menu" onClick={() => setOpen(!open)}>{open ? "Close" : "Menu"}</button>
       </div>
-
       {open && (
-        <nav
-          className="mobile-nav"
-          aria-label="Mobile navigation"
-        >
-          {[
-            "Services",
-            "Airport Transfers",
-            "Fleet",
-            "How It Works",
-            "FAQ",
-          ].map((item, i) => (
-            <a
-              key={item}
-              href={`#${
-                ["services", "airports", "fleet", "process", "faq"][i]
-              }`}
-              onClick={() => setOpen(false)}
-            >
-              {item}
-              <span>↗</span>
-            </a>
-          ))}
-
-          <a
-            className="mobile-book"
-            href="#book"
-            onClick={() => setOpen(false)}
-          >
-            Book a ride <span>↗</span>
-          </a>
+        <nav className="mobile-nav" aria-label="Mobile navigation">
+          {navigation.map(([label, href]) => <a key={label} href={href} onClick={() => setOpen(false)}>{label}<span>↗</span></a>)}
+          <button onClick={() => { setOpen(false); onAssistant() }}>Ask Hayes <span>↗</span></button>
+          {user ? <><a href="/account">{accountLabel}<span>↗</span></a><button onClick={signOut}>Sign out</button></> : <a href="/account/login?returnTo=/">Sign in<span>↗</span></a>}
+          <a className="mobile-book" href="#book" onClick={() => setOpen(false)}>Book a ride <span>↗</span></a>
         </nav>
       )}
     </header>
@@ -652,6 +607,45 @@ function BookingWidget() {
         </div>
       )}
     </div>
+  )
+}
+
+type PublicVehicle = { _id?: string; name: string; type: string; passengers: number; luggage: number; status: string; features?: string[] }
+
+function LiveFleet() {
+  const [vehicles, setVehicles] = useState<PublicVehicle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    fetch("/api/vehicles")
+      .then((response) => response.json())
+      .then((data) => data.success ? setVehicles(data.vehicles) : setError("Fleet is temporarily unavailable."))
+      .catch(() => setError("Fleet is temporarily unavailable."))
+      .finally(() => setLoading(false))
+  }, [])
+
+  return (
+    <section className="fleet-editorial" id="fleet">
+      <div className="section-wrap">
+        <div className="section-heading"><div><p className="eyebrow">The fleet</p><h2>Space to travel well.</h2></div><p>Live fleet details, with the capacity that matters for your journey.</p></div>
+        {loading ? <div className="fleet-loading" aria-live="polite">Preparing the fleet…</div> : error ? <div className="fleet-error" role="alert">{error}</div> : vehicles.length === 0 ? <div className="fleet-empty">No vehicles are currently listed. Ask Hayes for help planning your journey.</div> : (
+          <div className="fleet-showcase">
+            {vehicles.map((vehicle, index) => (
+              <article className="fleet-entry" key={vehicle._id || vehicle.name}>
+                <div className={"fleet-photo fleet-photo-" + ((index % 2) + 1)}><span>{String(index + 1).padStart(2, "0")}</span></div>
+                <div className="fleet-entry-copy">
+                  <p className="eyebrow">{vehicle.type}</p><h3>{vehicle.name}</h3>
+                  <div className="fleet-capacity"><span>{vehicle.passengers} passengers</span><span>{vehicle.luggage} luggage</span></div>
+                  {vehicle.features && vehicle.features.length > 0 && <p>{vehicle.features.slice(0, 3).join(" · ")}</p>}
+                  <a href="#book" className="text-link">Choose this class <span>↗</span></a>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -1398,12 +1392,12 @@ export default function HayesRide() {
             </p>
 
             <div className="hero-buttons">
-              <Button dark>
+              <Button dark onClick={() => document.getElementById("book")?.scrollIntoView({ behavior: "smooth" })}>
                 Book a ride
               </Button>
 
               <a
-                href="#quote"
+                href="#book"
                 className="text-link light"
               >
                 Get a quote{" "}
@@ -1425,6 +1419,7 @@ export default function HayesRide() {
         </section>
 
         <BookingWidget />
+<section className="proof-strip" aria-label="Journey confidence"><div className="section-wrap">{["Clear upfront quotes","Professional private hire","London & airport coverage","Booking support"].map((item) => <span key={item}>{item}</span>)}</div></section>
 
         <section className="intro section-wrap">
           <div className="intro-copy">
@@ -1466,80 +1461,11 @@ export default function HayesRide() {
 
         <section className="assistant-feature dark-section">
           <div className="section-wrap assistant-grid">
-            <div>
-              <p className="eyebrow brass">
-                A more considered booking
-                experience
-              </p>
-
-              <h2>
-                Prefer to
-                <br />
-                <em>just ask?</em>
-              </h2>
-
-              <p>
-                Tell us where you're going,
-                when you need to travel and
-                how many people are coming.
-                Our booking assistant can
-                help with your journey, quote
-                and reservation.
-              </p>
-
-              <button
-                className="text-link light"
-                onClick={() =>
-                  setAssistantOpen(true)
-                }
-              >
-                Meet the assistant{" "}
-                <span>↗</span>
-              </button>
-            </div>
-
-            <div className="conversation">
-              <div className="conversation-top">
-                <span>
-                  Hayes & Ride
-                </span>
-
-                <span className="live-dot">
-                  Available to help
-                </span>
-              </div>
-
-              <div className="message customer">
-                I need a Heathrow transfer
-                tomorrow at 7pm for four
-                people with luggage.
-              </div>
-
-              <div className="message assistant">
-                Absolutely. An Executive MPV
-                would be the best fit for
-                four passengers with
-                luggage. I have 7:00 PM
-                available.
-              </div>
-
-              <div className="fare">
-                <span>
-                  Estimated fare
-                </span>
-
-                <strong>£78</strong>
-              </div>
-
-              <div className="conversation-actions">
-                <button>
-                  Change details
-                </button>
-
-                <Button dark>
-                  Confirm booking
-                </Button>
-              </div>
+            <div><p className="eyebrow brass">Hayes, your booking assistant</p><h2>Travel plans,<br/><em>made conversational.</em></h2><p>Ask for a quote, find the right vehicle, check availability or continue to a real booking. Hayes keeps the journey context in this browser tab and resumes after sign-in.</p><button className="text-link light" onClick={() => setAssistantOpen(true)}>Start a conversation <span>↗</span></button></div>
+            <div className="hayes-capabilities" aria-label="Hayes capabilities">
+              <p className="eyebrow">What Hayes can do</p>
+              {["Plan a London or airport journey","Calculate a live quote","Match passenger and luggage needs","Resume a booking after sign-in"].map((item, index) => <div key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}
+              <button onClick={() => setAssistantOpen(true)}>Ask Hayes now <span>↗</span></button>
             </div>
           </div>
         </section>
@@ -1617,7 +1543,7 @@ export default function HayesRide() {
                 pickup to arrival.
               </p>
 
-              <Button dark>
+              <Button dark onClick={() => document.getElementById("book")?.scrollIntoView({ behavior: "smooth" })}>
                 Plan an airport transfer
               </Button>
             </div>
@@ -1646,149 +1572,7 @@ export default function HayesRide() {
           </div>
         </section>
 
-        <section
-          className="section-wrap fleet"
-          id="fleet"
-        >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">
-                The fleet
-              </p>
-
-              <h2>
-                A vehicle for every
-                journey.
-              </h2>
-            </div>
-
-            <p>
-              Comfortable, considered and
-              selected for the way you
-              travel.
-            </p>
-          </div>
-
-          <div className="fleet-grid">
-            {fleet.map(
-              (
-                [
-                  name,
-                  people,
-                  bags,
-                  copy,
-                ],
-                i
-              ) => (
-                <article
-                  className="fleet-card"
-                  key={name}
-                >
-                  <div
-                    className={`fleet-visual fleet-visual-${
-                      i + 1
-                    }`}
-                  >
-                    <span>
-                      H&R
-                    </span>
-                  </div>
-
-                  <div className="fleet-card-copy">
-                    <p className="eyebrow">
-                      {people} · {bags}
-                    </p>
-
-                    <h3>{name}</h3>
-
-                    <p>{copy}</p>
-
-                    <a
-                      href="#book"
-                      className="text-link"
-                    >
-                      Select vehicle{" "}
-                      <span>↗</span>
-                    </a>
-                  </div>
-                </article>
-              )
-            )}
-          </div>
-        </section>
-
-        <section
-          className="quote-section"
-          id="quote"
-        >
-          <div className="quote-card">
-            <div className="quote-route">
-              <span>
-                Heathrow Airport
-              </span>
-
-              <b>→</b>
-
-              <span>Chelsea</span>
-            </div>
-
-            <div className="quote-meta">
-              <span>
-                Tomorrow
-                <br />
-                <strong>
-                  7:00 PM
-                </strong>
-              </span>
-
-              <span>
-                Passengers
-                <br />
-                <strong>
-                  4 people
-                </strong>
-              </span>
-
-              <span>
-                Vehicle
-                <br />
-                <strong>
-                  Executive MPV
-                </strong>
-              </span>
-            </div>
-
-            <div className="quote-total">
-              <span>
-                Example estimate
-              </span>
-
-              <strong>£78</strong>
-
-              <Button dark>
-                Continue to booking
-              </Button>
-            </div>
-          </div>
-
-          <div className="quote-copy">
-            <p className="eyebrow">
-              Clear from the start
-            </p>
-
-            <h2>
-              Know the price
-              <br />
-              <em>before you travel.</em>
-            </h2>
-
-            <p>
-              No surprises, no guesswork.
-              A straightforward quote for a
-              straightforward journey.
-            </p>
-          </div>
-        </section>
+        <LiveFleet />
 
         <section
           className="process section-wrap"
@@ -1822,157 +1606,6 @@ export default function HayesRide() {
                 <h3>{t}</h3>
               </div>
             ))}
-          </div>
-        </section>
-
-        <section className="trust dark-section">
-          <div className="section-wrap">
-            <p className="eyebrow brass">
-              A better standard
-            </p>
-
-            <h2>
-              Built around
-              <br />
-              <em>a better journey.</em>
-            </h2>
-
-            <div className="trust-list">
-              {[
-                "Professional service",
-                "Clear pricing",
-                "Comfortable vehicles",
-                "Airport specialists",
-                "Available around the clock",
-              ].map((t) => (
-                <span key={t}>
-                  — {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="section-wrap booking-preview">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">
-                After you book
-              </p>
-
-              <h2>
-                Your journey,
-                <br />
-                <em>in hand.</em>
-              </h2>
-            </div>
-
-            <p>
-              A clear confirmation and easy
-              access to the details that
-              matter.
-            </p>
-          </div>
-
-          <div className="manage-grid">
-            <div className="confirmation">
-              <p className="eyebrow brass">
-                Booking confirmed
-              </p>
-
-              <div className="confirm-ref">
-                Your reference
-              </div>
-
-              <div className="confirm-route">
-                <span>
-                  Heathrow Airport
-                </span>
-
-                <b>→</b>
-
-                <span>Chelsea</span>
-              </div>
-
-              <div className="confirm-details">
-                <span>
-                  Tomorrow
-                  <br />
-                  <strong>
-                    7:00 PM
-                  </strong>
-                </span>
-
-                <span>
-                  Vehicle
-                  <br />
-                  <strong>
-                    Executive MPV
-                  </strong>
-                </span>
-
-                <span>
-                  Fare
-                  <br />
-                  <strong>£78</strong>
-                </span>
-              </div>
-
-              <div className="status">
-                ● Confirmed{" "}
-                <a href="#book">
-                  Manage booking ↗
-                </a>
-              </div>
-            </div>
-
-            <div className="journey-card">
-              <p className="eyebrow">
-                Your journey
-              </p>
-
-              <h3>
-                Your confirmed booking
-              </h3>
-
-              {[
-                [
-                  "Pickup",
-                  "Heathrow Airport",
-                ],
-                [
-                  "Destination",
-                  "Chelsea",
-                ],
-                [
-                  "Date",
-                  "Tomorrow",
-                ],
-                [
-                  "Time",
-                  "7:00 PM",
-                ],
-              ].map(([a, b]) => (
-                <div key={a}>
-                  <span>{a}</span>
-                  <strong>{b}</strong>
-                </div>
-              ))}
-
-              <div className="journey-actions">
-                <button>
-                  Change journey
-                </button>
-
-                <button>
-                  Contact support
-                </button>
-
-                <button>
-                  Cancel booking
-                </button>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -2058,12 +1691,12 @@ export default function HayesRide() {
             </p>
 
             <div className="hero-buttons">
-              <Button dark>
+              <Button dark onClick={() => document.getElementById("book")?.scrollIntoView({ behavior: "smooth" })}>
                 Book a ride
               </Button>
 
               <a
-                href="#quote"
+                href="#book"
                 className="text-link light"
               >
                 Get a quote{" "}
@@ -2130,7 +1763,7 @@ export default function HayesRide() {
               Book a ride
             </a>
 
-            <a href="#quote">
+            <a href="#book">
               Get a quote
             </a>
 

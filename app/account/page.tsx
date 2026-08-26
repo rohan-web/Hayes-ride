@@ -1,24 +1,24 @@
-import {
-  getCurrentUser,
-} from "@/lib/auth/session"
+import { getCurrentUser } from "@/lib/auth/session"
+import { getAllBookings } from "@/lib/booking/booking-management"
 import { redirect } from "next/navigation"
 import LogoutButton from "@/components/logout-button"
 import Link from "next/link"
 import { Brand } from "@/components/brand"
 
-export default async function AccountPage() {
-  const user =
-    await getCurrentUser()
+export const dynamic = "force-dynamic"
 
-  if (!user) {
-    redirect(
-      "/account/login"
-    )
-  }
+export default async function AccountPage() {
+  const user = await getCurrentUser()
+  if (!user) redirect("/account/login")
+
+  const allBookings = await getAllBookings()
+  const bookings = allBookings
+    .filter((booking) => booking.customer?.email === user.email)
+    .slice(0, 5)
 
   return (
     <main className="account-page">
-      <header className="account-header"><Brand /><Link href="/">Book a journey</Link></header>
+      <header className="account-header"><Brand /><Link href="/#book">Book a journey</Link></header>
       <div className="account-wrap">
         <p className="kicker">Your account</p>
         <h1>Welcome back, {user.name.split(" ")[0]}.</h1>
@@ -35,6 +35,12 @@ export default async function AccountPage() {
             <LogoutButton />
           </section>
         </div>
+        <section className="account-journeys">
+          <div><p className="kicker">Your journeys</p><h2>Recent bookings</h2></div>
+          {bookings.length === 0 ? <p className="account-empty">No bookings yet. Your confirmed journeys will appear here.</p> : (
+            <div>{bookings.map((booking) => <article key={booking.reference}><span><strong>{booking.reference}</strong><small>{booking.pickup} → {booking.destination}</small></span><span>{booking.date} · {booking.time}</span><em>{booking.status}</em></article>)}</div>
+          )}
+        </section>
       </div>
     </main>
   )

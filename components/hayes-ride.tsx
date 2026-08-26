@@ -664,36 +664,81 @@ function AssistantPanel({
 }: {
   close: () => void
 }) {
-  const [message, setMessage] = useState("")
+  const CHAT_KEY =
+    "hayes-assistant-conversation"
+
+  const RESUME_KEY =
+    "hayes-resume-after-auth"
+
+  const initialMessage: ChatMessage = {
+    role: "assistant",
+    content:
+      "Hi. I can help you get a quote, find a suitable vehicle or make a booking.",
+  }
+
+  const [message, setMessage] =
+    useState("")
 
   const [messages, setMessages] =
     useState<ChatMessage[]>([])
 
-  const [loading, setLoading] = useState(false)
-  const [requiresAuth, setRequiresAuth] = useState(false)
+  const [loading, setLoading] =
+    useState(false)
 
-  // Auto-scroll Hayes chat to the latest message/auth actions
-  const bottomRef =
-    useRef<HTMLDivElement | null>(null)
+  const [
+    requiresAuth,
+    setRequiresAuth,
+  ] = useState(false)
+
+  const [
+    resumeBooking,
+    setResumeBooking,
+  ] = useState(false)
+
+  /*
+   * Scroll the actual assistant body,
+   * instead of scrolling the whole webpage.
+   */
+  const bodyRef =
+    useRef<HTMLDivElement | null>(
+      null
+    )
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
+    const element =
+      bodyRef.current
+
+    if (!element) return
+
+    requestAnimationFrame(() => {
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: "smooth",
+      })
     })
   }, [
     messages,
     loading,
     requiresAuth,
+    resumeBooking,
   ])
 
   /*
-   * Restore Hayes conversation after login/navigation.
+   * Restore current-tab conversation.
+   *
+   * IMPORTANT:
+   * Also delete the OLD localStorage
+   * conversation left by the previous version.
    */
   useEffect(() => {
     try {
+      window.localStorage.removeItem(
+        CHAT_KEY
+      )
+
       const saved =
         window.sessionStorage.getItem(
-          "hayes-assistant-conversation"
+          CHAT_KEY
         )
 
       if (saved) {
@@ -705,34 +750,40 @@ function AssistantPanel({
           parsed.length > 0
         ) {
           setMessages(parsed)
-          return
+        } else {
+          setMessages([
+            initialMessage,
+          ])
         }
+      } else {
+        setMessages([
+          initialMessage,
+        ])
       }
     } catch (error) {
       console.error(
         "Unable to restore Hayes conversation:",
         error
       )
-    }
 
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Hi. I can help you get a quote, find a suitable vehicle or make a booking.",
-      },
-    ])
+      setMessages([
+        initialMessage,
+      ])
+    }
   }, [])
 
   /*
-   * Save conversation every time it changes.
+   * Save current conversation only
+   * for this browser tab/session.
    */
   useEffect(() => {
-    if (!messages.length) return
+    if (!messages.length) {
+      return
+    }
 
     try {
       window.sessionStorage.setItem(
-        "hayes-assistant-conversation",
+        CHAT_KEY,
         JSON.stringify(messages)
       )
     } catch (error) {
@@ -743,22 +794,99 @@ function AssistantPanel({
     }
   }, [messages])
 
-  function clearConversation() {
-    const initialMessage: ChatMessage = {
-      role: "assistant",
-      content:
-        "Hi. I can help you get a quote, find a suitable vehicle or make a booking.",
+  /*
+   * Customer has returned from login/signup.
+   *
+   * Verify that authentication really succeeded,
+   * then automatically resume Hayes.
+   */
+  useEffect(() => {
+    async function restoreAfterAuth() {
+      const shouldResume =
+        window.sessionStorage.getItem(
+          RESUME_KEY
+        )
+
+      if (
+        shouldResume !== "true"
+      ) {
+        return
+      }
+
+      try {
+        const response =
+          await fetch(
+            "/api/auth/me",
+            {
+              cache:
+                "no-store",
+            }
+          )
+
+        const data =
+          await response.json()
+
+        if (
+          response.ok &&
+          data.success &&
+          data.user
+        ) {
+          window.sessionStorage.removeItem(
+            RESUME_KEY
+          )
+
+          setRequiresAuth(false)
+          setResumeBooking(true)
+
+          setMessages(
+            (current) => [
+              ...current,
+              {
+                role:
+                  "assistant",
+
+                content:
+                  `You're signed in${data.user.name
+                    ? ` as ${data.user.name}`
+                    : ""
+                  }. I still have your journey details. Would you like me to complete the booking now?`,
+              },
+            ]
+          )
+        }
+      } catch (error) {
+        console.error(
+          "Unable to restore Hayes after authentication:",
+          error
+        )
+      }
     }
 
+    restoreAfterAuth()
+  }, [])
+
+  function clearConversation() {
     setMessages([
       initialMessage,
     ])
 
     setRequiresAuth(false)
+    setResumeBooking(false)
 
     try {
       window.sessionStorage.removeItem(
-        "hayes-assistant-conversation"
+        CHAT_KEY
+      )
+
+      window.sessionStorage.removeItem(
+        RESUME_KEY
+      )
+
+      /*
+       * Remove old legacy storage too.
+       */
+      window.localStorage.removeItem(
+        CHAT_KEY
       )
     } catch {}
   }
@@ -779,21 +907,19 @@ function AssistantPanel({
 
     setMessage("")
 
-    /*
-     * Keep conversation history BEFORE
-     * adding the new user message.
-     */
     const conversationHistory =
       messages
 
-    setMessages((current) => [
-      ...current,
-      {
-        role: "user",
-        content:
-          userMessage,
-      },
-    ])
+    setMessages(
+      (current) => [
+        ...current,
+        {
+          role: "user",
+          content:
+            userMessage,
+        },
+      ]
+    )
 
     setLoading(true)
 
@@ -834,15 +960,23 @@ function AssistantPanel({
       }
 
       /*
-       * IMPORTANT:
-       *
-       * The backend now decides
-       * whether authentication
-       * is actually required.
+       * Backend is the source of truth
+       * for authentication requirement.
        */
-      setRequiresAuth(
+      const authRequired =
         data.requiresAuth === true
+
+      setRequiresAuth(
+        authRequired
       )
+
+      /*
+       * Booking succeeded or authentication
+       * is no longer required.
+       */
+      if (!authRequired) {
+        setResumeBooking(false)
+      }
 
       setMessages(
         (current) => [
@@ -870,7 +1004,7 @@ function AssistantPanel({
               "assistant",
 
             content:
-              "Sorry, I couldn't process that request right now.",
+              "Hayes is temporarily unable to process that request. Please try again.",
           },
         ]
       )
@@ -887,31 +1021,43 @@ function AssistantPanel({
     sendMessage()
   }
 
-  /*
-   * Login/signup pages return
-   * customer to the homepage.
-   *
-   * Conversation stays stored.
-   */
   function goToLogin() {
-  sessionStorage.setItem(
-    "hayes-reopen-after-auth",
-    "true"
-  )
+    /*
+     * Hayes knows it must resume after
+     * the customer returns.
+     */
+    window.sessionStorage.setItem(
+      RESUME_KEY,
+      "true"
+    )
 
-  window.location.href =
-    "/account/login?returnTo=/"
-}
+    window.location.href =
+      "/account/login?returnTo=/"
+  }
 
-function goToSignup() {
-  sessionStorage.setItem(
-    "hayes-reopen-after-auth",
-    "true"
-  )
+  function goToSignup() {
+    window.sessionStorage.setItem(
+      RESUME_KEY,
+      "true"
+    )
 
-  window.location.href =
-    "/account/signup?returnTo=/"
-}
+    window.location.href =
+      "/account/signup?returnTo=/"
+  }
+
+  function continueBooking() {
+    setResumeBooking(false)
+
+    /*
+     * Don't send just "yes".
+     * Give Gemini an explicit instruction,
+     * so it doesn't accidentally calculate
+     * the quote again.
+     */
+    sendMessage(
+      "I am signed in. Please complete the booking now using the journey details, date, time, passenger count and vehicle already provided in this conversation. Do not recalculate the quote unless necessary."
+    )
+  }
 
   return (
     <aside
@@ -933,8 +1079,7 @@ function goToSignup() {
         <div
           style={{
             display: "flex",
-            alignItems:
-              "center",
+            alignItems: "center",
             gap: "8px",
           }}
         >
@@ -959,7 +1104,14 @@ function goToSignup() {
         </div>
       </div>
 
-      <div className="assistant-body">
+      {/*
+       * REF GOES HERE.
+       * This is the actual scrolling container.
+       */}
+      <div
+        ref={bodyRef}
+        className="assistant-body"
+      >
         {messages.map(
           (
             item,
@@ -975,23 +1127,12 @@ function goToSignup() {
               }
             >
               <p>
-                {
-                  item.content
-                }
+                {item.content}
               </p>
             </div>
           )
         )}
 
-        {/*
-         * IMPORTANT:
-         *
-         * Login/signup actions now
-         * show ONLY when the backend
-         * explicitly returns:
-         *
-         * requiresAuth: true
-         */}
         {requiresAuth && (
           <div
             style={{
@@ -1014,14 +1155,12 @@ function goToSignup() {
                   "12px",
               }}
             >
-              Ready to
-              continue? Please
-              sign in or create
-              an account first.
-              Your Hayes
-              conversation will
-              stay saved while
-              you do this.
+              Please sign in or
+              create an account to
+              complete your booking.
+              Your current Hayes
+              conversation will be
+              preserved.
             </p>
 
             <div
@@ -1055,6 +1194,50 @@ function goToSignup() {
             </div>
           </div>
         )}
+
+        {/*
+         * Automatically appears after
+         * successful login return.
+         */}
+        {resumeBooking &&
+          !requiresAuth && (
+            <div
+              style={{
+                marginTop:
+                  "12px",
+
+                padding:
+                  "16px",
+
+                border:
+                  "1px solid rgba(255,255,255,0.14)",
+
+                borderRadius:
+                  "12px",
+              }}
+            >
+              <p
+                style={{
+                  marginBottom:
+                    "12px",
+                }}
+              >
+                You're signed in.
+                Continue with the
+                journey we were
+                discussing?
+              </p>
+
+              <button
+                type="button"
+                onClick={
+                  continueBooking
+                }
+              >
+                Complete booking →
+              </button>
+            </div>
+          )}
 
         {loading && (
           <div className="assistant-message">
@@ -1110,8 +1293,6 @@ function goToSignup() {
             Manage my booking
           </button>
         </div>
-
-        <div ref={bottomRef} />
       </div>
 
       <form

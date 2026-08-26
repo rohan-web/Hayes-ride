@@ -2,6 +2,7 @@ import {
   getCurrentUser,
 } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
+import LogoutButton from "@/components/logout-button"
 
 export default async function AccountPage() {
   const user =
@@ -41,18 +42,9 @@ export default async function AccountPage() {
             </p>
           )}
 
-          <form
-            action="/api/auth/logout"
-            method="POST"
-            className="mt-6"
-          >
-            <button
-              type="submit"
-              className="rounded-xl border border-slate-700 px-5 py-3 text-sm"
-            >
-              Sign out
-            </button>
-          </form>
+         <div className="mt-6">
+  <LogoutButton />
+</div>
 
         </div>
 

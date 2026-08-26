@@ -3,6 +3,8 @@ import {
 } from "@/lib/auth/session"
 import { redirect } from "next/navigation"
 import LogoutButton from "@/components/logout-button"
+import Link from "next/link"
+import { Brand } from "@/components/brand"
 
 export default async function AccountPage() {
   const user =
@@ -15,39 +17,24 @@ export default async function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-6 py-10">
-
-        <p className="text-sm text-blue-400">
-          HAYES & RIDE
-        </p>
-
-        <h1 className="mt-2 text-3xl font-semibold">
-          My Account
-        </h1>
-
-        <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-
-          <h2 className="text-xl font-semibold">
-            {user.name}
-          </h2>
-
-          <p className="mt-2 text-slate-400">
-            {user.email}
-          </p>
-
-          {user.phone && (
-            <p className="mt-1 text-slate-400">
-              {user.phone}
-            </p>
-          )}
-
-         <div className="mt-6">
-  <LogoutButton />
-</div>
-
+    <main className="account-page">
+      <header className="account-header"><Brand /><Link href="/">Book a journey</Link></header>
+      <div className="account-wrap">
+        <p className="kicker">Your account</p>
+        <h1>Welcome back, {user.name.split(" ")[0]}.</h1>
+        <p className="account-lede">Your personal space for upcoming journeys and account details.</p>
+        <div className="account-grid">
+          <section className="account-card account-card-primary">
+            <span className="card-index">01</span><h2>Ready for your next journey?</h2>
+            <p>Get a clear quote and reserve your chauffeur in a few simple steps.</p>
+            <Link href="/#book" className="primary-action inline-action">Book a journey</Link>
+          </section>
+          <section className="account-card">
+            <span className="card-index">02</span><h2>Profile details</h2>
+            <dl><div><dt>Name</dt><dd>{user.name}</dd></div><div><dt>Email</dt><dd>{user.email}</dd></div>{user.phone && <div><dt>Telephone</dt><dd>{user.phone}</dd></div>}</dl>
+            <LogoutButton />
+          </section>
         </div>
-
       </div>
     </main>
   )

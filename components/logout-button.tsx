@@ -31,7 +31,7 @@ export default function LogoutButton() {
     <button
       type="button"
       onClick={logout}
-      className="rounded-xl border border-slate-700 px-5 py-3 text-sm"
+      className="logout-button"
     >
       Sign out
     </button>

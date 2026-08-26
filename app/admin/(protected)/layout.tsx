@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/auth/session"
+import { AdminShell } from "@/components/admin-shell"
 
 export default async function ProtectedAdminLayout({
   children,
@@ -16,5 +17,5 @@ export default async function ProtectedAdminLayout({
     redirect("/account")
   }
 
-  return children
+  return <AdminShell>{children}</AdminShell>
 }

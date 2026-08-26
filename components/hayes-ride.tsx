@@ -1760,7 +1760,7 @@ export default function HayesRide() {
 
             <div className="quote-total">
               <span>
-                Illustrative demo fare
+                Example estimate
               </span>
 
               <strong>£78</strong>
@@ -1881,7 +1881,7 @@ export default function HayesRide() {
               </p>
 
               <div className="confirm-ref">
-                HR-19482
+                Your reference
               </div>
 
               <div className="confirm-route">
@@ -1932,7 +1932,7 @@ export default function HayesRide() {
               </p>
 
               <h3>
-                Booking HR-19482
+                Your confirmed booking
               </h3>
 
               {[
@@ -2032,11 +2032,7 @@ export default function HayesRide() {
                     We're here to make
                     every part of your
                     journey clear and
-                    comfortable. This demo
-                    answer will connect to
-                    the Hayes & Ride help
-                    centre in the finished
-                    experience.
+                    comfortable. Our team will confirm the details that apply to your journey. Ask Hayes for immediate help before booking.
                   </p>
                 )}
               </div>
@@ -2094,7 +2090,7 @@ export default function HayesRide() {
           </p>
 
           <small>
-            Demo / Portfolio Project
+            Licensed private hire service
           </small>
         </div>
 

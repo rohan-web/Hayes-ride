@@ -16,6 +16,7 @@ interface Vehicle {
 export default function AdminVehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   async function loadVehicles() {
     try {
@@ -24,9 +25,10 @@ export default function AdminVehiclesPage() {
 
       if (data.success) {
         setVehicles(data.vehicles)
-      }
+      } else setError(data.error || "Unable to load vehicles.")
     } catch (error) {
       console.error(error)
+      setError("Unable to load vehicles. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -37,12 +39,12 @@ export default function AdminVehiclesPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
+    <main className="admin-content">
+      <div>
 
         <div className="mb-8">
-          <p className="text-sm text-blue-400">
-            HAYES & RIDE
+          <p className="kicker">
+            Fleet operations
           </p>
 
           <h1 className="mt-2 text-3xl font-semibold">
@@ -54,6 +56,7 @@ export default function AdminVehiclesPage() {
           </p>
         </div>
 
+        {error && <div className="admin-alert" role="alert">{error}</div>}
         {loading ? (
           <div className="text-slate-400">
             Loading vehicles...

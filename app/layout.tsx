@@ -5,7 +5,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Hayes & Ride — Private Hire & Airport Transfers',
   description: 'Premium private hire and airport transfers across London, with a booking experience designed around you.',
-  generator: 'v0.app',
+  applicationName: 'Hayes & Ride',
 }
 
 export const viewport: Viewport = {

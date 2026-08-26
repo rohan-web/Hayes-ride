@@ -107,7 +107,7 @@ export default function AdminPricingPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 p-10 text-white">
+      <main className="admin-content">
         Loading pricing...
       </main>
     )
@@ -115,18 +115,18 @@ export default function AdminPricingPage() {
 
   if (!pricing) {
     return (
-      <main className="min-h-screen bg-slate-950 p-10 text-white">
+      <main className="admin-content">
         Unable to load pricing.
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-6 py-10">
+    <main className="admin-content">
+      <div className="admin-narrow">
 
-        <p className="text-sm text-blue-400">
-          HAYES & RIDE
+        <p className="kicker">
+          Fare settings
         </p>
 
         <h1 className="mt-2 text-3xl font-semibold">

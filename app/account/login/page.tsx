@@ -1,12 +1,16 @@
 "use client"
 
 import { FormEvent, Suspense, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
+import { AuthShell } from "@/components/auth-shell"
 
 function LoginForm() {
-  const router = useRouter()
-
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo") || "/account"
+  const signupHref =
+    "/account/signup?" +
+    new URLSearchParams({ returnTo }).toString()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -41,14 +45,6 @@ if (!response.ok || !data.success) {
   return
 }
 
-const params =
-  new URLSearchParams(
-    window.location.search
-  )
-
-const returnTo =
-  params.get("returnTo") || "/account"
-
 window.location.replace(returnTo)
       
     } catch (error) {
@@ -66,30 +62,10 @@ window.location.replace(returnTo)
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen max-w-md items-center px-6">
-        <div className="w-full">
-
-          <div className="mb-8">
-            <p className="text-sm text-blue-400">
-              HAYES & RIDE
-            </p>
-
-            <h1 className="mt-2 text-3xl font-semibold">
-              Sign in
-            </h1>
-
-            <p className="mt-2 text-slate-400">
-              Sign in to manage your bookings.
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-6"
-          >
+    <AuthShell eyebrow="Welcome back" title="Sign in" copy="Access your journeys and manage upcoming bookings.">
+          <form onSubmit={handleSubmit} className="auth-form">
             {error && (
-              <div className="mb-5 rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+              <div className="form-alert" role="alert">
                 {error}
               </div>
             )}
@@ -97,7 +73,7 @@ window.location.replace(returnTo)
             <div>
               <label
                 htmlFor="email"
-                className="text-sm text-slate-300"
+                className="field-label"
               >
                 Email
               </label>
@@ -111,15 +87,15 @@ window.location.replace(returnTo)
                 }
                 required
                 autoComplete="email"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-                placeholder="john@example.com"
+                className="field-input"
+                placeholder="you@example.com"
               />
             </div>
 
-            <div className="mt-5">
+            <div>
               <label
                 htmlFor="password"
-                className="text-sm text-slate-300"
+                className="field-label"
               >
                 Password
               </label>
@@ -133,7 +109,7 @@ window.location.replace(returnTo)
                 }
                 required
                 autoComplete="current-password"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                className="field-input"
                 placeholder="••••••••"
               />
             </div>
@@ -141,7 +117,7 @@ window.location.replace(returnTo)
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 w-full rounded-xl bg-blue-600 px-5 py-3 font-medium transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="primary-action"
             >
               {loading
                 ? "Signing in..."
@@ -149,19 +125,17 @@ window.location.replace(returnTo)
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="auth-switch">
             Don't have an account?{" "}
             <Link
-              href="/account/signup"
-              className="text-blue-400 hover:text-blue-300"
+              href={signupHref}
+              className="inline-link"
             >
               Create one
             </Link>
           </p>
 
-        </div>
-      </div>
-    </main>
+    </AuthShell>
   )
 }
 
@@ -169,13 +143,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-slate-950 text-white">
-          <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-6">
-            <p className="text-slate-400">
-              Loading...
-            </p>
-          </div>
-        </main>
+        <main className="auth-loading"><span className="loading-line" />Preparing secure sign in…</main>
       }
     >
       <LoginForm />

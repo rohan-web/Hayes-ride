@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { AuthShell } from "@/components/auth-shell"
 
 export default function AdminLoginPage() {
   const router =
@@ -90,23 +91,8 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen max-w-md items-center px-6">
-
-        <div className="w-full rounded-2xl border border-slate-800 bg-slate-900 p-7">
-
-          <p className="text-sm text-blue-400">
-            HAYES & RIDE
-          </p>
-
-          <h1 className="mt-2 text-3xl font-semibold">
-            Admin Login
-          </h1>
-
-          <form
-            onSubmit={submit}
-            className="mt-7 space-y-4"
-          >
+    <AuthShell eyebrow="Operations" title="Admin sign in" copy="Secure access for the Hayes & Ride operations team.">
+          <form onSubmit={submit} className="auth-form">
 
             <input
               type="email"
@@ -118,7 +104,7 @@ export default function AdminLoginPage() {
                 )
               }
               required
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             <input
@@ -131,11 +117,11 @@ export default function AdminLoginPage() {
                 )
               }
               required
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             {error && (
-              <p className="text-sm text-red-400">
+              <p className="form-alert" role="alert">
                 {error}
               </p>
             )}
@@ -143,18 +129,15 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium disabled:opacity-50"
+              className="primary-action"
             >
               {loading
                 ? "Signing in..."
-                : "Admin Sign in"}
+                : "Sign in securely"}
             </button>
 
           </form>
 
-        </div>
-
-      </div>
-    </main>
+    </AuthShell>
   )
 }

@@ -26,6 +26,8 @@ interface Booking {
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [updating, setUpdating] = useState<string | null>(null)
 
   async function loadBookings() {
     try {
@@ -34,9 +36,12 @@ export default function AdminBookingsPage() {
 
       if (data.success) {
         setBookings(data.bookings)
+      } else {
+        setError(data.error || "Unable to load bookings.")
       }
     } catch (error) {
       console.error(error)
+      setError("Unable to load bookings. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -46,7 +51,9 @@ export default function AdminBookingsPage() {
     reference: string,
     status: string
   ) {
-    const response = await fetch(
+    setUpdating(reference)
+    setError("")
+    try { const response = await fetch(
       `/api/bookings/${reference}`,
       {
         method: "PATCH",
@@ -61,7 +68,8 @@ export default function AdminBookingsPage() {
 
     if (data.success) {
       await loadBookings()
-    }
+    } else setError(data.error || "Unable to update booking.")
+    } catch { setError("Unable to update booking.") } finally { setUpdating(null) }
   }
 
   useEffect(() => {
@@ -69,12 +77,12 @@ export default function AdminBookingsPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
+    <main className="admin-content">
+      <div>
 
         <div className="mb-8">
-          <p className="text-sm text-blue-400">
-            HAYES & RIDE
+          <p className="kicker">
+            Operations
           </p>
 
           <h1 className="mt-2 text-3xl font-semibold">
@@ -86,7 +94,8 @@ export default function AdminBookingsPage() {
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+        {error && <div className="admin-alert" role="alert">{error}</div>}
+        <div className="admin-table-card">
 
           {loading ? (
             <div className="p-8 text-slate-400">
@@ -164,7 +173,7 @@ export default function AdminBookingsPage() {
                       <td className="px-6 py-5">
 
                         <select
-                          value={booking.status}
+                          value={booking.status} disabled={updating === booking.reference}
                           onChange={(event) =>
                             updateStatus(
                               booking.reference,

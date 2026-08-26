@@ -1,13 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
+import { AuthShell } from "@/components/auth-shell"
 
-export default function SignupPage() {
-  const router =
-    useRouter()
-
+function SignupForm() {
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get("returnTo") || "/account"
+  const loginHref =
+    "/account/login?" +
+    new URLSearchParams({ returnTo }).toString()
   const [name, setName] =
     useState("")
 
@@ -62,17 +65,8 @@ if (!response.ok || !data.success) {
   return
 }
 
-const params =
-  new URLSearchParams(
-    window.location.search
-  )
-
-const returnTo =
-  params.get("returnTo") || "/account"
-
 window.location.replace(returnTo)
 
-      router.refresh()
     } catch (error) {
       setError(
         error instanceof Error
@@ -85,23 +79,8 @@ window.location.replace(returnTo)
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen max-w-md items-center px-6">
-
-        <div className="w-full rounded-2xl border border-slate-800 bg-slate-900 p-7">
-
-          <p className="text-sm text-blue-400">
-            HAYES & RIDE
-          </p>
-
-          <h1 className="mt-2 text-3xl font-semibold">
-            Create Account
-          </h1>
-
-          <form
-            onSubmit={handleSubmit}
-            className="mt-7 space-y-4"
-          >
+    <AuthShell eyebrow="Travel with us" title="Create your account" copy="Save your details and keep every journey close at hand.">
+          <form onSubmit={handleSubmit} className="auth-form">
 
             <input
               placeholder="Full name"
@@ -112,7 +91,7 @@ window.location.replace(returnTo)
                 )
               }
               required
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             <input
@@ -125,7 +104,7 @@ window.location.replace(returnTo)
                 )
               }
               required
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             <input
@@ -137,7 +116,7 @@ window.location.replace(returnTo)
                   e.target.value
                 )
               }
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             <input
@@ -151,11 +130,11 @@ window.location.replace(returnTo)
               }
               minLength={8}
               required
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="field-input"
             />
 
             {error && (
-              <p className="text-sm text-red-400">
+              <p className="form-alert" role="alert">
                 {error}
               </p>
             )}
@@ -163,7 +142,7 @@ window.location.replace(returnTo)
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium disabled:opacity-50"
+              className="primary-action"
             >
               {loading
                 ? "Creating account..."
@@ -172,19 +151,28 @@ window.location.replace(returnTo)
 
           </form>
 
-          <p className="mt-6 text-sm text-slate-400">
+          <p className="auth-switch">
             Already have an account?{" "}
             <Link
-              href="/account/login"
-              className="text-blue-400"
+              href={loginHref}
+              className="inline-link"
             >
               Sign in
             </Link>
           </p>
 
-        </div>
+    </AuthShell>
+  )
+}
 
-      </div>
-    </main>
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="auth-loading"><span className="loading-line" />Preparing secure sign up…</main>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   )
 }

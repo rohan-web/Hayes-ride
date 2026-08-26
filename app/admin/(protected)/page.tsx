@@ -2,26 +2,26 @@ import Link from "next/link"
 
 export default function AdminDashboard() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
+    <main className="admin-content">
+      <div>
 
         <div className="mb-10">
-          <p className="text-sm font-medium text-blue-400">
-            HAYES & RIDE
+          <p className="kicker">
+            Daily overview
           </p>
 
           <h1 className="mt-2 text-4xl font-semibold">
-            Admin Dashboard
+            Good morning.
           </h1>
 
           <p className="mt-2 text-slate-400">
-            Manage bookings, vehicles and your transport operation.
+            A clear view of today’s transport operation.
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="admin-stats">
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="admin-stat">
             <p className="text-sm text-slate-400">
               Total Bookings
             </p>
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="admin-stat">
             <p className="text-sm text-slate-400">
               Pending
             </p>
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="admin-stat">
             <p className="text-sm text-slate-400">
               Confirmed
             </p>
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div className="admin-stat">
             <p className="text-sm text-slate-400">
               Vehicles
             </p>
@@ -63,11 +63,11 @@ export default function AdminDashboard() {
 
         </div>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2">
+        <div className="admin-action-grid">
 
           <Link
             href="/admin/bookings"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-7 transition hover:border-slate-600"
+            className="admin-action-card"
           >
             <h2 className="text-xl font-semibold">
               Bookings
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
 
           <Link
             href="/admin/vehicles"
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-7 transition hover:border-slate-600"
+            className="admin-action-card"
           >
             <h2 className="text-xl font-semibold">
               Vehicles
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
           </Link>
           <Link
   href="/admin/pricing"
-  className="rounded-2xl border border-slate-800 bg-slate-900 p-7 transition hover:border-slate-600"
+  className="admin-action-card"
 >
   <h2 className="text-xl font-semibold">
     Pricing

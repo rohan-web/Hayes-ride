@@ -1,9 +1,10 @@
-
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
 import {
-  requireUser,
-} from "@/lib/auth/session"
+  n8nAuthErrorResponse,
+  requireN8nServiceAuth,
+} from "@/lib/auth/n8n-service-auth"
 import {
   cancelBookingByReference,
   getBookingByReference,
@@ -13,28 +14,41 @@ import {
   bookingUpdateSchema,
 } from "@/lib/booking/validation"
 
+export const dynamic = "force-dynamic"
+
 type Context = {
   params: Promise<{
     reference: string
   }>
 }
 
-/*
- * GET — customer can view their own booking.
- */
+function bookingResponse(
+  booking: Record<string, unknown>
+) {
+  return {
+    ...booking,
+    id:
+      typeof booking._id === "object" &&
+      booking._id &&
+      "toString" in booking._id
+        ? String(booking._id)
+        : booking.id,
+  }
+}
+
 export async function GET(
   request: Request,
   context: Context
 ) {
   try {
-    const user = await requireUser()
+    requireN8nServiceAuth(request)
 
-    const { reference } = await context.params
+    const { reference } =
+      await context.params
 
     const booking =
       await getBookingByReference(
-        reference,
-        user.email
+        reference
       )
 
     if (!booking) {
@@ -47,74 +61,63 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      booking: {
-        ...booking,
-        id: booking._id.toString(),
+    return NextResponse.json(
+      {
+        success: true,
+        booking:
+          bookingResponse(booking),
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    )
   } catch (error) {
+    const authResponse =
+      n8nAuthErrorResponse(error)
+
+    if (authResponse) {
+      return authResponse
+    }
+
     console.error(
-      "Get booking API error:",
+      "n8n get booking error:",
       error
     )
 
     return NextResponse.json(
       {
         success: false,
-        error: "Unable to retrieve booking.",
+        error:
+          "Unable to retrieve booking.",
       },
       { status: 500 }
     )
   }
 }
 
-/*
- * PATCH — ADMIN ONLY.
- *
- * Admin can update any booking.
- */
 export async function PATCH(
   request: Request,
   context: Context
 ) {
   try {
-    const user = await requireUser()
+    requireN8nServiceAuth(request)
 
-    /*
-     * IMPORTANT:
-     * Admin actions must use requireAdmin logic.
-     */
-    if (user.role !== "admin") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Admin access required.",
-        },
-        { status: 403 }
-      )
-    }
-
-    const { reference } = await context.params
+    const { reference } =
+      await context.params
     const updates =
       bookingUpdateSchema.parse(
         await request.json()
       )
 
-    /*
-     * IMPORTANT:
-     * Do NOT include customer.email here.
-     *
-     * The admin is allowed to update any booking.
-     */
-    const result =
+    const booking =
       await updateBookingByReference(
         reference,
         updates
       )
 
-    if (!result) {
+    if (!booking) {
       return NextResponse.json(
         {
           success: false,
@@ -124,14 +127,26 @@ export async function PATCH(
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      booking: {
-        ...result,
-        id: result._id.toString(),
+    return NextResponse.json(
+      {
+        success: true,
+        booking:
+          bookingResponse(booking),
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    )
   } catch (error) {
+    const authResponse =
+      n8nAuthErrorResponse(error)
+
+    if (authResponse) {
+      return authResponse
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -145,39 +160,37 @@ export async function PATCH(
     }
 
     console.error(
-      "Update booking API error:",
+      "n8n update booking error:",
       error
     )
 
     return NextResponse.json(
       {
         success: false,
-        error: "Unable to update booking.",
+        error:
+          "Unable to update booking.",
       },
       { status: 500 }
     )
   }
 }
 
-/*
- * DELETE — customer can cancel their own booking.
- */
 export async function DELETE(
   request: Request,
   context: Context
 ) {
   try {
-    const user = await requireUser()
+    requireN8nServiceAuth(request)
 
-    const { reference } = await context.params
+    const { reference } =
+      await context.params
 
-    const result =
+    const booking =
       await cancelBookingByReference(
-        reference,
-        user.email
+        reference
       )
 
-    if (!result) {
+    if (!booking) {
       return NextResponse.json(
         {
           success: false,
@@ -187,26 +200,38 @@ export async function DELETE(
       )
     }
 
-    return NextResponse.json({
-      success: true,
-      booking: {
-        ...result,
-        id: result._id.toString(),
+    return NextResponse.json(
+      {
+        success: true,
+        booking:
+          bookingResponse(booking),
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    )
   } catch (error) {
+    const authResponse =
+      n8nAuthErrorResponse(error)
+
+    if (authResponse) {
+      return authResponse
+    }
+
     console.error(
-      "Cancel booking API error:",
+      "n8n cancel booking error:",
       error
     )
 
     return NextResponse.json(
       {
         success: false,
-        error: "Unable to cancel booking.",
+        error:
+          "Unable to cancel booking.",
       },
       { status: 500 }
     )
   }
 }
-

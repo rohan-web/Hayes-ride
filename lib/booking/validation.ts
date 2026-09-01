@@ -23,3 +23,33 @@ export const bookingSchema = z.object({
 })
 
 export type ValidatedBookingInput = z.infer<typeof bookingSchema>
+
+export const bookingUpdateSchema = z
+  .object({
+    pickup: z.string().min(2, "Pickup location is required").optional(),
+    destination: z.string().min(2, "Destination is required").optional(),
+    date: z.string().min(1, "Date is required").optional(),
+    time: z.string().min(1, "Time is required").optional(),
+    passengers: z.number().int().min(1).max(8).optional(),
+    status: z
+      .enum([
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed",
+      ])
+      .optional(),
+  })
+  .refine(
+    (updates) =>
+      Object.values(updates).some(
+        (value) => value !== undefined
+      ),
+    {
+      message: "No valid booking updates provided.",
+    }
+  )
+
+export type ValidatedBookingUpdate = z.infer<
+  typeof bookingUpdateSchema
+>

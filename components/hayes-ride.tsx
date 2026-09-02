@@ -676,8 +676,13 @@ function AssistantPanel({
     }
 
     const saved =
-      window.sessionStorage.getItem(
-        SESSION_KEY
+      (
+        window.localStorage.getItem(
+          SESSION_KEY
+        ) ||
+        window.sessionStorage.getItem(
+          SESSION_KEY
+        )
       )?.trim()
 
     if (saved) {
@@ -693,6 +698,11 @@ function AssistantPanel({
         : `web-${Date.now()}-${Math.random()
             .toString(36)
             .slice(2)}`
+
+    window.localStorage.setItem(
+      SESSION_KEY,
+      nextSessionId
+    )
 
     window.sessionStorage.setItem(
       SESSION_KEY,
@@ -725,21 +735,20 @@ function AssistantPanel({
   ])
 
   /*
-   * Restore current-tab conversation.
+   * Restore the conversation across refreshes.
    *
-   * IMPORTANT:
-   * Also delete the OLD localStorage
-   * conversation left by the previous version.
+   * Prefer durable localStorage, while keeping a
+   * sessionStorage fallback for conversations saved
+   * by the previous version.
    */
   useEffect(() => {
     try {
       getOrCreateSessionId()
 
-      window.localStorage.removeItem(
-        CHAT_KEY
-      )
-
       const saved =
+        window.localStorage.getItem(
+          CHAT_KEY
+        ) ||
         window.sessionStorage.getItem(
           CHAT_KEY
         )
@@ -776,8 +785,8 @@ function AssistantPanel({
   }, [])
 
   /*
-   * Save current conversation only
-   * for this browser tab/session.
+   * Save the current conversation across page refreshes.
+   * Logout and the New Conversation button still clear it.
    */
   useEffect(() => {
     if (!messages.length) {
@@ -786,6 +795,11 @@ function AssistantPanel({
 
     try {
       window.sessionStorage.setItem(
+        CHAT_KEY,
+        JSON.stringify(messages)
+      )
+
+      window.localStorage.setItem(
         CHAT_KEY,
         JSON.stringify(messages)
       )
@@ -889,12 +903,13 @@ function AssistantPanel({
         SESSION_KEY
       )
 
+      window.localStorage.removeItem(
+        SESSION_KEY
+      )
+
       sessionIdRef.current = ""
       getOrCreateSessionId()
 
-      /*
-       * Remove old legacy storage too.
-       */
       window.localStorage.removeItem(
         CHAT_KEY
       )

@@ -26,6 +26,10 @@ export default function LogoutButton() {
         "hayes-assistant-conversation"
       )
 
+      localStorage.removeItem(
+        "hayes-assistant-session-id"
+      )
+
       window.location.href =
         "/account/login"
     }

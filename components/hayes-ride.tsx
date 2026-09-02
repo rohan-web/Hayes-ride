@@ -61,6 +61,37 @@ type ChatMessage = {
   content: string
 }
 
+type BrowserSpeechRecognitionEvent = {
+  results: ArrayLike<{
+    isFinal: boolean
+    [index: number]: {
+      transcript: string
+    }
+  }>
+}
+
+type BrowserSpeechRecognition = {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  onresult:
+    | ((
+        event: BrowserSpeechRecognitionEvent
+      ) => void)
+    | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+  abort: () => void
+}
+
+type VoiceCapableWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: new () => BrowserSpeechRecognition
+    webkitSpeechRecognition?: new () => BrowserSpeechRecognition
+  }
+
 function Button({
   children,
   dark = false,
@@ -96,6 +127,10 @@ function Header({ onAssistant }: { onAssistant: () => void }) {
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" })
+    sessionStorage.removeItem("hayes-assistant-conversation")
+    sessionStorage.removeItem("hayes-assistant-session-id")
+    localStorage.removeItem("hayes-assistant-conversation")
+    localStorage.removeItem("hayes-assistant-session-id")
     setUser(null)
     setOpen(false)
     window.location.href = "/"
@@ -648,6 +683,12 @@ function AssistantPanel({
   const [loading, setLoading] =
     useState(false)
 
+  const [voiceSupported, setVoiceSupported] =
+    useState(false)
+
+  const [listening, setListening] =
+    useState(false)
+
   const [
     requiresAuth,
     setRequiresAuth,
@@ -669,6 +710,31 @@ function AssistantPanel({
 
   const sessionIdRef =
     useRef("")
+
+  const recognitionRef =
+    useRef<BrowserSpeechRecognition | null>(
+      null
+    )
+
+  const voiceModeRef =
+    useRef(false)
+
+  useEffect(() => {
+    const voiceWindow =
+      window as VoiceCapableWindow
+
+    setVoiceSupported(
+      Boolean(
+        voiceWindow.SpeechRecognition ||
+          voiceWindow.webkitSpeechRecognition
+      )
+    )
+
+    return () => {
+      recognitionRef.current?.abort()
+      window.speechSynthesis?.cancel()
+    }
+  }, [])
 
   function getOrCreateSessionId() {
     if (sessionIdRef.current) {
@@ -883,6 +949,11 @@ function AssistantPanel({
   }, [])
 
   function clearConversation() {
+    recognitionRef.current?.abort()
+    window.speechSynthesis?.cancel()
+    voiceModeRef.current = false
+    setListening(false)
+
     setMessages([
       initialMessage,
     ])
@@ -1020,6 +1091,36 @@ function AssistantPanel({
           },
         ]
       )
+
+      if (
+        voiceModeRef.current &&
+        "speechSynthesis" in window
+      ) {
+        const spokenText = data.message
+          .replace(
+            /\[([^\]]+)\]\([^)]+\)/g,
+            "$1"
+          )
+          .replace(/[*_`#]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+
+        if (spokenText) {
+          window.speechSynthesis.cancel()
+
+          const utterance =
+            new SpeechSynthesisUtterance(
+              spokenText
+            )
+
+          utterance.lang = "en-GB"
+          utterance.rate = 0.96
+
+          window.speechSynthesis.speak(
+            utterance
+          )
+        }
+      }
     } catch (error) {
       console.error(
         "Assistant error:",
@@ -1049,6 +1150,83 @@ function AssistantPanel({
     e.preventDefault()
 
     sendMessage()
+  }
+
+  function toggleVoiceInput() {
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const voiceWindow =
+      window as VoiceCapableWindow
+
+    const Recognition =
+      voiceWindow.SpeechRecognition ||
+      voiceWindow.webkitSpeechRecognition
+
+    if (!Recognition || loading) {
+      return
+    }
+
+    window.speechSynthesis?.cancel()
+
+    const recognition =
+      new Recognition()
+
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = "en-GB"
+
+    recognition.onresult = (event) => {
+      let transcript = ""
+      let finalResult = false
+
+      for (
+        let index = 0;
+        index < event.results.length;
+        index += 1
+      ) {
+        transcript +=
+          event.results[index][0]
+            ?.transcript || ""
+
+        finalResult =
+          finalResult ||
+          event.results[index].isFinal
+      }
+
+      const cleanTranscript =
+        transcript.trim()
+
+      setMessage(cleanTranscript)
+
+      if (
+        finalResult &&
+        cleanTranscript
+      ) {
+        voiceModeRef.current = true
+        recognition.stop()
+        void sendMessage(
+          cleanTranscript
+        )
+      }
+    }
+
+    recognition.onerror = () => {
+      setListening(false)
+    }
+
+    recognition.onend = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
+
+    recognitionRef.current =
+      recognition
+
+    setListening(true)
+    recognition.start()
   }
 
   function goToLogin() {
@@ -1338,10 +1516,39 @@ function AssistantPanel({
               e.target.value
             )
           }
-          placeholder="Tell us what you need..."
+          placeholder={
+            listening
+              ? "Listening..."
+              : "Tell us what you need..."
+          }
           aria-label="Message the booking assistant"
           disabled={loading}
         />
+
+        {voiceSupported && (
+          <button
+            type="button"
+            className={
+              listening
+                ? "voice-button listening"
+                : "voice-button"
+            }
+            onClick={toggleVoiceInput}
+            disabled={loading}
+            aria-label={
+              listening
+                ? "Stop listening"
+                : "Speak to Hayes"
+            }
+            title={
+              listening
+                ? "Stop listening"
+                : "Speak to Hayes"
+            }
+          >
+            {listening ? "�" : "��"}
+          </button>
+        )}
 
         <button
           type="submit"

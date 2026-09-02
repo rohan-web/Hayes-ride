@@ -917,6 +917,9 @@ function AssistantPanel({
 
     setMessage("")
 
+    const conversationHistory =
+      messages.slice(-16)
+
     setMessages(
       (current) => [
         ...current,
@@ -951,6 +954,9 @@ function AssistantPanel({
                   userMessage,
 
                 sessionId,
+
+                history:
+                  conversationHistory,
               }),
           }
         )

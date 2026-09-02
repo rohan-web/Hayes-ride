@@ -70,6 +70,11 @@ type BrowserSpeechRecognitionEvent = {
   }>
 }
 
+type BrowserSpeechRecognitionErrorEvent = {
+  error: string
+  message?: string
+}
+
 type BrowserSpeechRecognition = {
   continuous: boolean
   interimResults: boolean
@@ -79,7 +84,11 @@ type BrowserSpeechRecognition = {
         event: BrowserSpeechRecognitionEvent
       ) => void)
     | null
-  onerror: (() => void) | null
+  onerror:
+    | ((
+        event: BrowserSpeechRecognitionErrorEvent
+      ) => void)
+    | null
   onend: (() => void) | null
   start: () => void
   stop: () => void
@@ -689,6 +698,9 @@ function AssistantPanel({
   const [listening, setListening] =
     useState(false)
 
+  const [voiceNotice, setVoiceNotice] =
+    useState("")
+
   const [
     requiresAuth,
     setRequiresAuth,
@@ -1170,13 +1182,40 @@ function AssistantPanel({
     }
 
     window.speechSynthesis?.cancel()
+    setVoiceNotice("")
 
     const recognition =
       new Recognition()
 
+    let lastTranscript = ""
+    let submitted = false
+    let recognitionError = false
+
+    function submitTranscript() {
+      const cleanTranscript =
+        lastTranscript.trim()
+
+      if (
+        submitted ||
+        !cleanTranscript
+      ) {
+        return
+      }
+
+      submitted = true
+      voiceModeRef.current = true
+      setListening(false)
+      setMessage("")
+
+      void sendMessage(
+        cleanTranscript
+      )
+    }
+
     recognition.continuous = false
     recognition.interimResults = true
-    recognition.lang = "en-GB"
+    recognition.lang =
+      navigator.language || "en-GB"
 
     recognition.onresult = (event) => {
       let transcript = ""
@@ -1199,27 +1238,75 @@ function AssistantPanel({
       const cleanTranscript =
         transcript.trim()
 
+      lastTranscript =
+        cleanTranscript
+
       setMessage(cleanTranscript)
 
       if (
         finalResult &&
         cleanTranscript
       ) {
+        submitted = true
         voiceModeRef.current = true
+        setListening(false)
+        setMessage("")
         recognition.stop()
+
         void sendMessage(
           cleanTranscript
         )
       }
     }
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      recognitionError = true
       setListening(false)
+
+      const notices: Record<
+        string,
+        string
+      > = {
+        "not-allowed":
+          "Microphone permission is blocked. Allow it from the browser address bar, then try again.",
+        "service-not-allowed":
+          "Browser speech recognition is blocked. Please use the latest Chrome or Edge and allow microphone access.",
+        "audio-capture":
+          "No working microphone was found. Check your microphone and Windows input settings.",
+        "no-speech":
+          "I could not hear any speech. Click Mic and speak clearly, then wait a moment.",
+        network:
+          "The browser speech service could not connect. Check your internet connection or try Chrome/Edge.",
+        aborted:
+          "Listening stopped. Click Mic when you are ready to try again.",
+      }
+
+      setVoiceNotice(
+        notices[event.error] ||
+          `Voice recognition stopped (${event.error}). Please try again in Chrome or Edge.`
+      )
     }
 
     recognition.onend = () => {
       setListening(false)
       recognitionRef.current = null
+
+      if (
+        !submitted &&
+        lastTranscript
+      ) {
+        submitTranscript()
+        return
+      }
+
+      if (
+        !submitted &&
+        !recognitionError
+      ) {
+        setVoiceNotice(
+          "I could not hear a complete message. Click Mic, speak clearly, and wait for it to send."
+        )
+      }
     }
 
     recognitionRef.current =
@@ -1503,6 +1590,15 @@ function AssistantPanel({
         </div>
       </div>
 
+      {voiceNotice && (
+        <p
+          className="voice-notice"
+          role="status"
+        >
+          {voiceNotice}
+        </p>
+      )}
+
       <form
         className="assistant-input"
         onSubmit={
@@ -1546,7 +1642,9 @@ function AssistantPanel({
                 : "Speak to Hayes"
             }
           >
-            {listening ? "�" : "��"}
+            {listening
+              ? "Stop"
+              : "Mic"}
           </button>
         )}
 

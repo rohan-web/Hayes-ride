@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react"
+import type { RetellWebClient } from "retell-client-js-sdk"
 
 const services = [
   [
@@ -60,6 +61,12 @@ type ChatMessage = {
   role: "user" | "assistant"
   content: string
 }
+
+type RetellCallState =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "error"
 
 type BrowserSpeechRecognitionEvent = {
   results: ArrayLike<{
@@ -702,6 +709,23 @@ function AssistantPanel({
     useState("")
 
   const [
+    retellCallState,
+    setRetellCallState,
+  ] = useState<RetellCallState>(
+    "idle"
+  )
+
+  const [
+    retellMuted,
+    setRetellMuted,
+  ] = useState(false)
+
+  const [
+    retellAgentTalking,
+    setRetellAgentTalking,
+  ] = useState(false)
+
+  const [
     requiresAuth,
     setRequiresAuth,
   ] = useState(false)
@@ -728,6 +752,11 @@ function AssistantPanel({
       null
     )
 
+  const retellClientRef =
+    useRef<RetellWebClient | null>(
+      null
+    )
+
   const voiceModeRef =
     useRef(false)
 
@@ -745,6 +774,8 @@ function AssistantPanel({
     return () => {
       recognitionRef.current?.abort()
       window.speechSynthesis?.cancel()
+      retellClientRef.current?.stopCall()
+      retellClientRef.current = null
     }
   }, [])
 
@@ -963,6 +994,7 @@ function AssistantPanel({
   function clearConversation() {
     recognitionRef.current?.abort()
     window.speechSynthesis?.cancel()
+    stopRetellCall()
     voiceModeRef.current = false
     setListening(false)
 
@@ -997,6 +1029,164 @@ function AssistantPanel({
         CHAT_KEY
       )
     } catch {}
+  }
+
+  function stopRetellCall() {
+    const client =
+      retellClientRef.current
+
+    if (client) {
+      client.stopCall()
+      client.removeAllListeners()
+      retellClientRef.current = null
+    }
+
+    setRetellCallState("idle")
+    setRetellMuted(false)
+    setRetellAgentTalking(false)
+  }
+
+  async function startRetellCall() {
+    if (
+      retellCallState === "connecting" ||
+      retellCallState === "connected"
+    ) {
+      return
+    }
+
+    recognitionRef.current?.abort()
+    window.speechSynthesis?.cancel()
+    setListening(false)
+    setVoiceNotice("")
+    setRetellCallState("connecting")
+
+    try {
+      const response = await fetch(
+        "/api/retell-web-call",
+        {
+          method: "POST",
+        }
+      )
+
+      const data = await response
+        .json()
+        .catch(() => null)
+
+      if (
+        !response.ok ||
+        !data?.success ||
+        typeof data.accessToken !==
+          "string"
+      ) {
+        throw new Error(
+          data?.error ||
+            "Unable to start the Hayes voice demo."
+        )
+      }
+
+      const { RetellWebClient } =
+        await import(
+          "retell-client-js-sdk"
+        )
+
+      const client =
+        new RetellWebClient()
+
+      retellClientRef.current =
+        client
+
+      client.on(
+        "call_started",
+        () => {
+          setRetellCallState(
+            "connected"
+          )
+        }
+      )
+
+      client.on(
+        "call_ended",
+        () => {
+          client.removeAllListeners()
+
+          if (
+            retellClientRef.current ===
+            client
+          ) {
+            retellClientRef.current =
+              null
+          }
+
+          setRetellCallState("idle")
+          setRetellMuted(false)
+          setRetellAgentTalking(false)
+        }
+      )
+
+      client.on(
+        "agent_start_talking",
+        () => {
+          setRetellAgentTalking(true)
+        }
+      )
+
+      client.on(
+        "agent_stop_talking",
+        () => {
+          setRetellAgentTalking(false)
+        }
+      )
+
+      client.on("error", () => {
+        setVoiceNotice(
+          "The realtime voice call was interrupted. Please try again."
+        )
+        stopRetellCall()
+      })
+
+      await client.startCall({
+        accessToken:
+          data.accessToken,
+        sampleRate: 24000,
+        captureDeviceId:
+          "default",
+      })
+    } catch (error) {
+      console.error(
+        "Retell voice call error:",
+        error
+      )
+
+      stopRetellCall()
+      setRetellCallState("error")
+      setVoiceNotice(
+        error instanceof Error
+          ? error.message
+          : "Unable to start the Hayes voice demo."
+      )
+    }
+  }
+
+  function toggleRetellMute() {
+    const client =
+      retellClientRef.current
+
+    if (
+      !client ||
+      retellCallState !==
+        "connected"
+    ) {
+      return
+    }
+
+    if (retellMuted) {
+      client.unmute()
+      setRetellMuted(false)
+      return
+    }
+
+    client.mute()
+    setRetellMuted(true)
   }
 
   async function sendMessage(
@@ -1590,6 +1780,81 @@ function AssistantPanel({
         </div>
       </div>
 
+      <div
+        className={
+          retellCallState ===
+          "connected"
+            ? "retell-voice-card active"
+            : "retell-voice-card"
+        }
+      >
+        <div>
+          <span>
+            Realtime AI voice
+          </span>
+
+          <strong>
+            {retellCallState ===
+            "connecting"
+              ? "Connecting..."
+              : retellCallState ===
+                "connected"
+              ? retellAgentTalking
+                ? "Hayes is speaking"
+                : retellMuted
+                ? "Microphone muted"
+                : "Hayes is listening"
+              : "Talk to Hayes"}
+          </strong>
+        </div>
+
+        <div className="retell-voice-actions">
+          {retellCallState ===
+          "connected" ? (
+            <>
+              <button
+                type="button"
+                className="retell-mute-button"
+                onClick={toggleRetellMute}
+              >
+                {retellMuted
+                  ? "Unmute"
+                  : "Mute"}
+              </button>
+
+              <button
+                type="button"
+                className="retell-end-button"
+                onClick={stopRetellCall}
+              >
+                End call
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={
+                startRetellCall
+              }
+              disabled={
+                retellCallState ===
+                "connecting"
+              }
+            >
+              {retellCallState ===
+              "connecting"
+                ? "Starting..."
+                : "Start voice call"}
+            </button>
+          )}
+        </div>
+
+        <small>
+          Live AI call. Microphone
+          permission is required.
+        </small>
+      </div>
+
       {voiceNotice && (
         <p
           className="voice-notice"
@@ -1618,10 +1883,20 @@ function AssistantPanel({
               : "Tell us what you need..."
           }
           aria-label="Message the booking assistant"
-          disabled={loading}
+          disabled={
+            loading ||
+            retellCallState ===
+              "connecting" ||
+            retellCallState ===
+              "connected"
+          }
         />
 
-        {voiceSupported && (
+        {voiceSupported &&
+          retellCallState !==
+            "connecting" &&
+          retellCallState !==
+            "connected" && (
           <button
             type="button"
             className={
@@ -1652,6 +1927,10 @@ function AssistantPanel({
           type="submit"
           disabled={
             loading ||
+            retellCallState ===
+              "connecting" ||
+            retellCallState ===
+              "connected" ||
             !message.trim()
           }
           aria-label="Send message"

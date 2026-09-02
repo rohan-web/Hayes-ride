@@ -18,6 +18,10 @@ export default function LogoutButton() {
         "hayes-resume-after-auth"
       )
 
+      sessionStorage.removeItem(
+        "hayes-assistant-session-id"
+      )
+
       localStorage.removeItem(
         "hayes-assistant-conversation"
       )

@@ -627,6 +627,9 @@ function AssistantPanel({
   const CHAT_KEY =
     "hayes-assistant-conversation"
 
+  const SESSION_KEY =
+    "hayes-assistant-session-id"
+
   const RESUME_KEY =
     "hayes-resume-after-auth"
 
@@ -664,6 +667,44 @@ function AssistantPanel({
       null
     )
 
+  const sessionIdRef =
+    useRef("")
+
+  function getOrCreateSessionId() {
+    if (sessionIdRef.current) {
+      return sessionIdRef.current
+    }
+
+    const saved =
+      window.sessionStorage.getItem(
+        SESSION_KEY
+      )?.trim()
+
+    if (saved) {
+      sessionIdRef.current = saved
+      return saved
+    }
+
+    const nextSessionId =
+      typeof window.crypto
+        ?.randomUUID ===
+      "function"
+        ? window.crypto.randomUUID()
+        : `web-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`
+
+    window.sessionStorage.setItem(
+      SESSION_KEY,
+      nextSessionId
+    )
+
+    sessionIdRef.current =
+      nextSessionId
+
+    return nextSessionId
+  }
+
   useEffect(() => {
     const element =
       bodyRef.current
@@ -692,6 +733,8 @@ function AssistantPanel({
    */
   useEffect(() => {
     try {
+      getOrCreateSessionId()
+
       window.localStorage.removeItem(
         CHAT_KEY
       )
@@ -842,6 +885,13 @@ function AssistantPanel({
         RESUME_KEY
       )
 
+      window.sessionStorage.removeItem(
+        SESSION_KEY
+      )
+
+      sessionIdRef.current = ""
+      getOrCreateSessionId()
+
       /*
        * Remove old legacy storage too.
        */
@@ -867,9 +917,6 @@ function AssistantPanel({
 
     setMessage("")
 
-    const conversationHistory =
-      messages
-
     setMessages(
       (current) => [
         ...current,
@@ -884,9 +931,12 @@ function AssistantPanel({
     setLoading(true)
 
     try {
+      const sessionId =
+        getOrCreateSessionId()
+
       const response =
         await fetch(
-          "/api/assistant",
+          "/api/hayes-assistant",
           {
             method: "POST",
 
@@ -900,8 +950,7 @@ function AssistantPanel({
                 message:
                   userMessage,
 
-                history:
-                  conversationHistory,
+                sessionId,
               }),
           }
         )
